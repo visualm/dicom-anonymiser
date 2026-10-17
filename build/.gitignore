@@ -1,0 +1,6 @@
+node_modules/
+.venv/
+testdata/
+testout/
+testexport/
+package-lock.json
