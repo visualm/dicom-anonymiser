@@ -397,32 +397,45 @@
     return x1 > x0 && y1 > y0 ? { x0, y0, x1, y1 } : null;
   }
 
-  // Fill value per sample that displays as black for this frame.
-  function fillValues(frame, ds) {
+  // Fill value per sample that displays as black (or white) for this frame.
+  function fillValues(frame, ds, white) {
     const p = frame.photometric;
-    if (frame.spp === 3) return p.startsWith('YBR') ? [0, 128 << (frame.bitsStored > 8 ? frame.bitsStored - 8 : 0), 128 << (frame.bitsStored > 8 ? frame.bitsStored - 8 : 0)] : [0, 0, 0];
+    if (frame.spp === 3) {
+      const shift = frame.bitsStored > 8 ? frame.bitsStored - 8 : 0;
+      const max = (1 << Math.min(frame.bitsStored, 16)) - 1;
+      const mid = 128 << shift;
+      if (p.startsWith('YBR')) return [white ? max : 0, mid, mid];
+      return white ? [max, max, max] : [0, 0, 0];
+    }
     if (p === 'PALETTE COLOR' && ds) {
       const lut = paletteLUT(ds);
       if (lut) {
-        let best = 0; let bestSum = Infinity;
+        let best = 0; let bestSum = white ? -Infinity : Infinity;
         for (let i = 0; i < lut[0].vals.length; i++) {
           const sum = lut[0].vals[i] + (lut[1].vals[i] || 0) + (lut[2].vals[i] || 0);
-          if (sum < bestSum) { bestSum = sum; best = i; }
+          if (white ? sum > bestSum : sum < bestSum) { bestSum = sum; best = i; }
         }
         return [best + lut[0].first];
       }
-      return [0];
+      return [white ? 255 : 0];
     }
+    // Greyscale: use the darkest / brightest value present in this frame.
     const mm = minMax(Object.assign({}, frame), { slope: 1, intercept: 0 });
-    return [p === 'MONOCHROME1' ? mm.rawHi : mm.rawLo];
+    const inverted = p === 'MONOCHROME1';
+    return [white !== inverted ? mm.rawHi : mm.rawLo];
   }
 
+  // box.fill: 'black' (default) or 'white'
   function fillTyped(frame, boxes, ds) {
-    const fill = fillValues(frame, ds);
+    const fills = {};
     const { rows, cols, spp, data } = frame;
     for (const b of boxes) {
       const c = clipBox(b, rows, cols);
       if (!c) continue;
+      const white = b.fill === 'white';
+      const key = white ? 'w' : 'b';
+      if (!fills[key]) fills[key] = fillValues(frame, ds, white);
+      const fill = fills[key];
       for (let y = c.y0; y < c.y1; y++) {
         for (let x = c.x0; x < c.x1; x++) {
           const i = (y * cols + x) * spp;
@@ -452,12 +465,13 @@
           for (const b of boxes) {
             const c = clipBox(b, inf.rows, inf.cols);
             if (!c) continue;
+            const y422 = b.fill === 'white' ? 255 : 0;
             const x0 = c.x0 & ~1;
             const x1 = Math.min(inf.cols, (c.x1 + 1) & ~1);
             for (let y = c.y0; y < c.y1; y++) {
               for (let x = x0; x < x1; x += 2) {
                 const i = (y * inf.cols + x) * 2;
-                bytes[i] = 0; bytes[i + 1] = 0; bytes[i + 2] = 128; bytes[i + 3] = 128;
+                bytes[i] = y422; bytes[i + 1] = y422; bytes[i + 2] = 128; bytes[i + 3] = 128;
               }
             }
           }

@@ -1,6 +1,7 @@
 """Independent verification of anonymised output with pydicom."""
 import os, sys, numpy as np, pydicom
 src, dst = sys.argv[1], sys.argv[2]
+WHITE = len(sys.argv) > 3 and sys.argv[3] == 'white'
 BOX = (10, 10, 60, 50)  # x0, y0, x1, y1
 LOSSY = {'1.2.840.10008.1.2.4.50', '1.2.840.10008.1.2.4.51', '1.2.840.10008.1.2.4.91', '1.2.840.10008.1.2.4.81'}
 problems = 0
@@ -23,12 +24,13 @@ for f in sorted(os.listdir(dst)):
             reg = fb[y0:y1, x0:x1]
             if fb.ndim == 3:
                 # pydicom returns RGB; black means all ~0
-                ok = reg.max() <= 2 if b.PhotometricInterpretation in ('RGB', 'YBR_FULL', 'YBR_FULL_422') else True
+                ok = (reg.min() >= 253 if WHITE else reg.max() <= 2) if b.PhotometricInterpretation in ('RGB', 'YBR_FULL', 'YBR_FULL_422') else True
             elif b.PhotometricInterpretation == 'PALETTE COLOR':
                 ok = len(np.unique(reg)) == 1
             else:
-                target = fa.max() if b.PhotometricInterpretation == 'MONOCHROME1' else fa.min()
-                ok = np.all(reg == target) or np.all(reg == fb.min())
+                bright = (b.PhotometricInterpretation == 'MONOCHROME1') != WHITE
+                target = fa.max() if bright else fa.min()
+                ok = np.all(reg == target) or np.all(reg == (fb.max() if bright else fb.min()))
             if not ok: msgs.append(f'box not black: {np.unique(reg)[:5]}')
             mask = np.ones(fb.shape[:2], bool); mask[y0:y1, x0:x1] = False
             if fb.ndim == 3 and b.PhotometricInterpretation == 'RGB' and fa.shape == fb.shape:

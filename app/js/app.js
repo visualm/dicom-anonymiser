@@ -410,7 +410,7 @@
     if (!pseudonym) pseudonym = E.formatPseudonym(nextNumber());
     S.cur = {
       study: st, mod, presetName, rules: preset.rules, options: preset.options, dirty: false, pseudonym, reused,
-      boxes: [], reviewed: new Set(), win: new Map(), active: null, index: 0, scope: 'image',
+      boxes: [], reviewed: new Set(), win: new Map(), active: null, index: 0, scope: 'image', fill: store.load().boxFill || 'black',
       filter: 'all', search: '', showPrivate: false, outMode: 'copy', verify: null, screen: 'tags',
     };
     S.cur.summary = summarise(st);
@@ -858,7 +858,7 @@
     const c = S.cur;
     const it = c.active.images[c.index];
     c.boxes.push(Object.assign(b, {
-      id: Date.now() + Math.random(), scope: c.scope, seriesUID: it.file.seriesUID, fileId: it.file.id, frame: it.frame,
+      id: Date.now() + Math.random(), scope: c.scope, fill: c.fill, seriesUID: it.file.seriesUID, fileId: it.file.id, frame: it.frame,
       rows: it.file.rows, cols: it.file.cols, seriesNo: c.active.number,
     }));
     refreshBoxes();
@@ -902,7 +902,10 @@
         <span class="muted small">(${c.active ? c.active.images.length : 0} images)</span></label>
       <label class="opt"><input type="radio" name="scope" value="size" ${c.scope === 'size' ? 'checked' : ''}> All ${it ? it.file.cols + '×' + it.file.rows : ''} images in this study
         <span class="muted small">(${sizeCount} images)</span></label>
-      <p class="small muted">Boxes are filled with black in the saved files. Draw them generously around text.</p>
+      <h3 style="margin-top:14px">New boxes are filled with</h3>
+      <div class="row"><label class="opt"><input type="radio" name="fill" value="black" ${c.fill !== 'white' ? 'checked' : ''}> Black</label>
+        <label class="opt"><input type="radio" name="fill" value="white" ${c.fill === 'white' ? 'checked' : ''}> White</label></div>
+      <p class="small muted">The box area is replaced with this colour in the saved files. Draw boxes generously around text.</p>
       <h3 style="margin-top:14px">Boxes (${c.boxes.length})</h3>
       ${c.boxes.length ? '' : '<p class="small muted">No boxes yet. If an image shows a name, date of birth, ID or other identifying text, drag a box over it.</p>'}
       ${c.boxes.map((b, i) => {
@@ -912,10 +915,16 @@
             <option value="image" ${b.scope === 'image' ? 'selected' : ''}>this image only</option>
             <option value="series" ${b.scope === 'series' ? 'selected' : ''}>whole series</option>
             <option value="size" ${b.scope === 'size' ? 'selected' : ''}>all ${b.cols}×${b.rows} images</option></select>
+            <select data-bfill="${i}"><option value="black" ${b.fill !== 'white' ? 'selected' : ''}>black</option>
+              <option value="white" ${b.fill === 'white' ? 'selected' : ''}>white</option></select>
             <button class="small" data-bgo="${i}">Show</button><button class="small" data-bdel="${i}">Delete</button></div></div>`;
       }).join('')}
       ${c.boxes.length ? '<button class="small" id="clearBoxes">Delete all boxes</button>' : ''}`;
     $$('input[name=scope]', side).forEach((r) => { r.onchange = () => { c.scope = r.value; }; });
+    $$('input[name=fill]', side).forEach((r) => {
+      r.onchange = () => { c.fill = r.value; store.load().boxFill = r.value; store.save(); };
+    });
+    $$('[data-bfill]', side).forEach((s) => { s.onchange = () => { c.boxes[+s.dataset.bfill].fill = s.value; refreshBoxes(); }; });
     $$('[data-bscope]', side).forEach((s) => { s.onchange = () => { c.boxes[+s.dataset.bscope].scope = s.value; refreshBoxes(); }; });
     $$('[data-bdel]', side).forEach((b) => { b.onclick = () => { c.boxes.splice(+b.dataset.bdel, 1); refreshBoxes(); }; });
     $$('[data-bgo]', side).forEach((b) => {

@@ -55,7 +55,7 @@
         const y = this.oy + Math.min(b.y, b.y + b.h) * this.scale;
         const w = Math.abs(b.w) * this.scale;
         const h = Math.abs(b.h) * this.scale;
-        if (b.preview !== false) { g.fillStyle = 'rgba(0,0,0,0.78)'; g.fillRect(x, y, w, h); }
+        if (b.preview !== false) { g.fillStyle = b.fill === 'white' ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.78)'; g.fillRect(x, y, w, h); }
         g.lineWidth = Math.max(1.5, (window.devicePixelRatio || 1) * 1.5);
         g.strokeStyle = b.draft ? '#ffd54f' : b.highlight ? '#ff5252' : '#ff8a80';
         g.setLineDash(b.draft ? [6, 4] : []);

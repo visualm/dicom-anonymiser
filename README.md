@@ -28,6 +28,7 @@ Open `app/index.html` in Microsoft Edge or Google Chrome. User instructions are 
   - You can view every series, including multi-frame cine/NM.
   - Series likely to contain burned-in text are flagged (Burned In Annotation, US, SC, …).
   - Redaction boxes can apply to one image, the whole series, or all same-size images in the study.
+  - Each box is filled black or white.
 - **Step 3: review.**
   - Shows a before/after image and a before/after tag diff. The "after" side is decoded from the generated file.
   - Every file is anonymised in memory, read back and searched for the original identifiers.

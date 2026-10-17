@@ -21,7 +21,8 @@ WORKFLOW
                         modality is pre-selected next time.
      Step 2  Images   - check every series. Drag a box over burned-in text (left mouse).
                         Choose whether a box applies to this image, the whole series,
-                        or all images of the same size. Right-drag = window/level.
+                        or all images of the same size, and whether it is filled
+                        black or white. Right-drag = window/level.
      Step 3  Review   - original vs. anonymised image and tags, plus an automatic check
                         of all files. Then save a COPY to an output folder, or
                         OVERWRITE the originals (the DICOMDIR is then deleted).
