@@ -18,7 +18,7 @@
       ts = await DA.pixels.redact(parsed, boxesByFrame);
       D().setString(parsed.ds, 0x00280301, 'CS', 'NO', ''); // Burned In Annotation
     }
-    DA.anon.anonymise(parsed.ds, cfg, { uidMap: ctx.uidMap, valueMap: ctx.valueMap, charset });
+    DA.anon.anonymise(parsed.ds, cfg, { uidMap: ctx.uidMap, valueMap: ctx.valueMap, stackUID: ctx.stackUID, charset });
     const sopClass = D().getString(parsed.ds, 0x00080016, '') || D().getString(parsed.meta, 0x00020002, '');
     let sopInst = D().getString(parsed.ds, 0x00080018, '');
     if (!sopInst) sopInst = DA.anon.newUID();

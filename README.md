@@ -20,7 +20,8 @@ Open `app/index.html` in Microsoft Edge or Google Chrome. User instructions are 
 - **Step 1: tags.**
   - All tags in the study are listed with their values.
   - Defaults follow the PS3.15 Basic Profile.
-  - Each tag can be set to Keep, Empty, Remove, Random, Fixed value or Pseudonym.
+  - Each tag can be set to Keep, Empty, Remove, Random, Fixed value, Pseudonym or Counter (1, 2, 3… per image in study order).
+  - Optionally, all images of a study can be merged into one stack: one shared Series UID, Series Number 1, Instance Numbers 1…N.
   - Rows that contain the patient name or ID are highlighted.
   - Choices can be saved as named presets. The last preset used for a modality is pre-selected next time.
   - Presets can be exported and imported (JSON).

@@ -1,6 +1,6 @@
 // Default tag actions, based on DICOM PS3.15 Annex E (Basic Application Level
 // Confidentiality Profile). Actions:
-//   keep | empty | remove | random | fixed | pseudo
+//   keep | empty | remove | random | fixed | pseudo | counter
 // "random" on a UID tag generates a new UID, consistently for the whole session.
 // "pseudo" writes the study pseudonym (e.g. ANON-0001).
 (function () {
@@ -102,7 +102,7 @@
   DA.profile = {
     NAME: 'DICOM Basic Profile',
     defaults: buildDefaults(),
-    options: { removePrivate: true, removeOverlays: true, removeCurves: true, remapOtherUIDs: true },
+    options: { removePrivate: true, removeOverlays: true, removeCurves: true, remapOtherUIDs: true, mergeStack: false },
     isClassUIDTag(tag) {
       const info = DA.dicom.lookup(tag);
       return CLASS_UID_RE.test(info.name);

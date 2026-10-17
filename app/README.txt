@@ -16,7 +16,11 @@ WORKFLOW
   3. Pick a study. For each study:
      Step 1  Tags     - the suggested anonymisation (DICOM Basic Profile) is pre-selected.
                         Tick/untick tags and choose Keep / Empty / Remove / Random /
-                        Fixed value / Pseudonym. Red rows contain the patient name or ID.
+                        Fixed value / Pseudonym / Counter (1, 2, 3... per image).
+                        Red rows contain the patient name or ID.
+                        "Merge all images into one stack" gives every image of the
+                        study one shared series (Series Number 1, images numbered
+                        1..N), so viewers show a single scrollable stack.
                         Save your choices as a preset; the last preset used for a
                         modality is pre-selected next time.
      Step 2  Images   - check every series. Drag a box over burned-in text (left mouse).

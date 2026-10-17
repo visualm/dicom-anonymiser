@@ -65,7 +65,8 @@
     return n;
   }
 
-  // Mutates `ds` in place. cfg: {rules, options, pseudonym, presetName}. ctx: {uidMap, valueMap, charset}
+  // Mutates `ds` in place. cfg: {rules, options, pseudonym, presetName, counter}. ctx: {uidMap, valueMap, charset, stackUID}
+  // cfg.counter is this image's 1-based position in the study (used by the "counter" action and mergeStack).
   function anonymise(ds, cfg, ctx) {
     const opt = cfg.options;
     const cs = ctx.charset;
@@ -103,6 +104,21 @@
           setStr(target, el, str);
           continue;
         }
+        if (action === 'counter') {
+          const n = cfg.counter || 1;
+          if (el.items) { el.items = []; continue; }
+          if (el.vr === 'US' || el.vr === 'UL' || el.vr === 'SS' || el.vr === 'SL') {
+            const size = el.vr === 'US' || el.vr === 'SS' ? 2 : 4;
+            const v = new Uint8Array(size);
+            const dv = new DataView(v.buffer);
+            if (size === 2) dv.setUint16(0, n & 0xffff, true); else dv.setUint32(0, n >>> 0, true);
+            el.value = v;
+          } else if (dicom.STRING_VR.has(el.vr) || el.vr === 'UN') {
+            if (el.vr === 'UN') el.vr = 'IS';
+            setStr(target, el, String(n));
+          } else el.value = new Uint8Array(0);
+          continue;
+        }
         if (action === 'random') {
           if (el.items) { el.items = []; continue; }
           const orig = el.value ? dicom.decodeText(el.value, cs, el.vr) : '';
@@ -123,6 +139,13 @@
       }
     }
     walk(ds);
+
+    if (opt.mergeStack && ctx.stackUID) {
+      // One series for the whole study: shared Series UID and number, images numbered 1..N.
+      dicom.setString(ds, 0x0020000e, 'UI', ctx.stackUID, cs);
+      dicom.setString(ds, 0x00200011, 'IS', '1', cs);
+      dicom.setString(ds, 0x00200013, 'IS', String(cfg.counter || 1), cs);
+    }
 
     dicom.setString(ds, 0x00120062, 'CS', 'YES', cs); // PatientIdentityRemoved
     dicom.setString(ds, 0x00120063, 'LO', ('DICOM Anonymiser: ' + (cfg.presetName || 'custom')).slice(0, 64), cs);

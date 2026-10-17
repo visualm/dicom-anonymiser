@@ -413,6 +413,10 @@
       boxes: [], reviewed: new Set(), win: new Map(), active: null, index: 0, scope: 'image', fill: store.load().boxFill || 'black',
       filter: 'all', search: '', showPrivate: false, outMode: 'copy', verify: null, screen: 'tags',
     };
+    // Position of each image in the study (series order, then instance order): used by "counter" and merging.
+    S.cur.order = new Map();
+    for (const se of st.seriesList) for (const f of se.files) S.cur.order.set(f.id, S.cur.order.size + 1);
+    S.cur.stackUID = DA.anon.newUID();
     S.cur.summary = summarise(st);
     renderTags();
   }
@@ -481,10 +485,11 @@
   }
 
   // ---------------------------------------------------------------- step 1: tags
-  const ACTIONS = { keep: 'Keep', empty: 'Empty', remove: 'Remove', random: 'Random', fixed: 'Fixed value', pseudo: 'Pseudonym' };
+  const ACTIONS = { keep: 'Keep', empty: 'Empty', remove: 'Remove', random: 'Random', fixed: 'Fixed value', pseudo: 'Pseudonym', counter: 'Counter (1, 2, 3…)' };
   function actionsFor(vr) {
     if (vr === 'SQ') return ['keep', 'empty', 'remove'];
-    if (D.STRING_VR.has(vr) || vr === 'UN') return ['keep', 'empty', 'remove', 'random', 'fixed', 'pseudo'];
+    if (D.STRING_VR.has(vr) || vr === 'UN') return ['keep', 'empty', 'remove', 'random', 'fixed', 'pseudo', 'counter'];
+    if (['US', 'UL', 'SS', 'SL'].includes(vr)) return ['keep', 'empty', 'remove', 'counter'];
     return ['keep', 'empty', 'remove'];
   }
   function ruleOf(r) {
@@ -492,6 +497,9 @@
     if (r.priv && c.options.removePrivate) return { a: 'remove', implied: 'all private tags are removed' };
     if (r.overlay && c.options.removeOverlays) return { a: 'remove', implied: 'overlays (60xx) are removed' };
     if (r.curve && c.options.removeCurves) return { a: 'remove', implied: 'curves (50xx) are removed' };
+    if (c.options.mergeStack && r.hex === '0020000E') return { a: 'random', implied: 'one shared UID: merged into one stack' };
+    if (c.options.mergeStack && r.hex === '00200011') return { a: 'fixed', implied: 'set to 1: merged into one stack' };
+    if (c.options.mergeStack && r.hex === '00200013') return { a: 'counter', implied: 'numbered 1…N: merged into one stack' };
     let rule = c.rules[r.hex];
     if (!rule && (r.overlay || r.curve)) rule = c.rules[r.hex.slice(0, 2) + '00' + r.hex.slice(4)];
     if (rule) return rule;
@@ -524,6 +532,7 @@
         <label><input type="checkbox" data-opt="removeOverlays" ${c.options.removeOverlays ? 'checked' : ''}> Remove overlays 60xx (${nOv})</label>
         <label><input type="checkbox" data-opt="removeCurves" ${c.options.removeCurves ? 'checked' : ''}> Remove curves 50xx (${nCurve})</label>
         <label><input type="checkbox" data-opt="remapOtherUIDs" ${c.options.remapOtherUIDs ? 'checked' : ''}> Replace all other UIDs</label>
+        <label title="All images of the study get the same new Series Instance UID and Series Number 1, and are numbered 1…N, so viewers show one stack."><input type="checkbox" data-opt="mergeStack" ${c.options.mergeStack ? 'checked' : ''}> Merge all images into one stack (${c.study.files.length} images)</label>
         <span class="spacer"></span>
         <label><select id="filter">
           <option value="all">All tags</option><option value="change">Only tags that change</option><option value="keep">Only kept tags</option>
@@ -946,14 +955,16 @@
   }
 
   // ---------------------------------------------------------------- step 3: review & save
-  function cfg() {
+  // file: the image being processed (gives the "counter" value = its position in the study)
+  function cfg(file) {
     const c = S.cur;
-    return { rules: c.rules, options: c.options, pseudonym: c.pseudonym, presetName: c.presetName + (c.dirty ? ' (modified)' : '') };
+    return { rules: c.rules, options: c.options, pseudonym: c.pseudonym, presetName: c.presetName + (c.dirty ? ' (modified)' : ''),
+      counter: (file && c.order.get(file.id)) || 1 };
   }
   function ctx() {
     const pk = patientKey(S.cur.study);
     if (!S.session.valueMaps.has(pk)) S.session.valueMaps.set(pk, new Map());
-    return { uidMap: S.session.uidMap, valueMap: S.session.valueMaps.get(pk) };
+    return { uidMap: S.session.uidMap, valueMap: S.session.valueMaps.get(pk), stackUID: S.cur.stackUID };
   }
 
   let beforeV = null;
@@ -1081,7 +1092,7 @@
     const token = ++showToken;
     try {
       const blob = await it.file.handle.getFile();
-      const r = await E.processFile(blob, cfg(), ctx(), boxesByFrame(it.file));
+      const r = await E.processFile(blob, cfg(it.file), ctx(), boxesByFrame(it.file));
       if (token !== showToken) return;
       const orig = await getParsed(it.file);
       // Images
@@ -1124,12 +1135,11 @@
     const files = c.study.files;
     const v = { finished: false, done: 0, leaks: [], errors: [], redacted: 0 };
     c.verify = v;
-    const conf = cfg();
     const cx = ctx();
     for (const f of files) {
       if (token !== verifyToken || S.cur !== c) return;
       try {
-        const r = await E.processFile(await f.handle.getFile(), conf, cx, boxesByFrame(f));
+        const r = await E.processFile(await f.handle.getFile(), cfg(f), cx, boxesByFrame(f));
         if (r.redacted) v.redacted++;
         for (const l of r.leaks) v.leaks.push({ file: f, leak: l });
       } catch (e) {
@@ -1193,7 +1203,6 @@
     main.innerHTML = `<div class="card" style="max-width:700px;margin:40px auto"><h2>Saving ${esc(c.pseudonym)}…</h2>
       <div class="progress"><div id="sBar"></div></div><p class="muted" id="sMsg"></p>
       <p class="small muted">Please keep this window open.</p></div>`;
-    const conf = cfg();
     const cx = ctx();
     const errors = [];
     const leaks = [];
@@ -1208,17 +1217,21 @@
         for (const f of se.files) {
           i++;
           try {
-            const r = await E.processFile(await f.handle.getFile(), conf, cx, boxesByFrame(f));
+            const r = await E.processFile(await f.handle.getFile(), cfg(f), cx, boxesByFrame(f));
             leaks.push(...r.leaks);
             let target;
             if (overwrite) target = f.handle;
             else {
-              let sd = seriesDirs.get(se.uid);
+              // Merged stack: one series folder, files numbered in study order.
+              const merged = c.options.mergeStack;
+              const dirKey = merged ? 'stack' : se.uid;
+              let sd = seriesDirs.get(dirKey);
               if (!sd) {
-                sd = await studyDir.getDirectoryHandle(('S' + pad(se.number, 3) + '_' + se.modality).replace(/[^A-Za-z0-9_-]/g, '_'), { create: true });
-                seriesDirs.set(se.uid, sd);
+                const dirName = merged ? 'S001_' + st.seriesList[0].modality : 'S' + pad(se.number, 3) + '_' + se.modality;
+                sd = await studyDir.getDirectoryHandle(dirName.replace(/[^A-Za-z0-9_-]/g, '_'), { create: true });
+                seriesDirs.set(dirKey, sd);
               }
-              target = await sd.getFileHandle('IM' + pad(i, 5) + '.dcm', { create: true });
+              target = await sd.getFileHandle('IM' + pad(merged ? c.order.get(f.id) : i, 5) + '.dcm', { create: true });
             }
             const w = await target.createWritable();
             await w.write(r.bytes);
