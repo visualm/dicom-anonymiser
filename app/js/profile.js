@@ -81,6 +81,15 @@
   // Tags whose UID values identify a class/type, never an instance: never remapped.
   const CLASS_UID_RE = /(ClassUID|TransferSyntaxUID|CodingSchemeUID|ContextUID|MappingResourceUID|PrivateInformationCreatorUID|ImplementationClassUID|ContextGroupExtensionCreatorUID)/;
 
+  // Kept by default although the Basic Profile removes them: they describe the type of
+  // examination and the body part (e.g. "Thorax pa", "Knie li 2 Ebenen"), which must stay
+  // in the file. Free text can still contain names; the leak check flags that.
+  const KEEP = [
+    'StudyDescription', 'SeriesDescription', 'ProtocolName', 'RequestedProcedureDescription',
+    'PerformedProcedureStepDescription', 'ScheduledProcedureStepDescription', 'ProcedureCodeSequence',
+    'RequestedProcedureCodeSequence', 'PerformedProcedureCodeSequence',
+  ];
+
   const byName = {};
   for (const [k, v] of Object.entries(window.DA_DICT)) byName[v.slice(v.indexOf('|') + 1)] = k;
 
@@ -92,6 +101,7 @@
         if (tag && !rules[tag]) rules[tag] = { a: action };
       }
     };
+    put(KEEP, 'keep'); // first, so the lists below cannot override it
     put(PSEUDO, 'pseudo');
     put(EMPTY, 'empty');
     put(UIDS, 'random');

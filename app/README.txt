@@ -27,6 +27,9 @@ WORKFLOW
                         Choose whether a box applies to this image, the whole series,
                         or all images of the same size, and whether it is filled
                         black or white. Right-drag = window/level.
+                        FAST MODE: tick "Skip image check (faster)" on the Tags step
+                        to go straight to Review. Tags are still anonymised and
+                        checked, but burned-in text in the images is NOT removed.
      Step 3  Review   - original vs. anonymised image and tags, plus an automatic check
                         of all files. Then save a COPY to an output folder, or
                         OVERWRITE the originals (the DICOMDIR is then deleted).

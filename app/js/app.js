@@ -58,7 +58,8 @@
       [{ label: 'Cancel', value: null }, { label: 'OK', value: '__input__', cls: 'primary' }]);
 
   function setSteps(active) {
-    const names = ['Load', 'Studies', '1 · Tags', '2 · Images', '3 · Review & save'];
+    const skip = S.cur && S.cur.skipPixels;
+    const names = ['Load', 'Studies', '1 · Tags', skip ? '2 · Images (skipped)' : '2 · Images', '3 · Review & save'];
     $('#steps').innerHTML = names.map((n, i) =>
       '<span class="' + (i === active ? 'active' : i < active ? 'done' : '') + '">' + n + '</span>').join('');
   }
@@ -164,7 +165,7 @@
         }).join('')}
         </tbody></table>
       </div>
-      <p class="small muted" style="margin-top:16px">DICOM Anonymiser runs entirely in this browser. Default tag rules follow the
+      <p class="small muted" style="margin-top:16px">DICOM Anonymiser 1.1.0 runs entirely in this browser. Default tag rules follow the
       DICOM PS3.15 Basic Application Level Confidentiality Profile. Always check the result before sharing data.</p>
       </div>`;
 
@@ -410,7 +411,7 @@
     if (!pseudonym) pseudonym = E.formatPseudonym(nextNumber());
     S.cur = {
       study: st, mod, presetName, rules: preset.rules, options: preset.options, dirty: false, pseudonym, reused,
-      boxes: [], reviewed: new Set(), win: new Map(), active: null, index: 0, scope: 'image', fill: store.load().boxFill || 'black',
+      boxes: [], reviewed: new Set(), win: new Map(), active: null, index: 0, scope: 'image', fill: store.load().boxFill || 'black', skipPixels: !!store.load().skipPixels,
       filter: 'all', search: '', showPrivate: false, outMode: 'copy', verify: null, screen: 'tags',
     };
     // Position of each image in the study (series order, then instance order): used by "counter" and merging.
@@ -544,7 +545,9 @@
         <th style="width:110px">Tag</th><th>Name</th><th style="width:40px">VR</th><th>Value(s) in this study</th>
         <th style="width:290px">Action</th></tr></thead><tbody id="tagBody"></tbody></table></div>
       <div class="footer"><span class="muted small" id="tagStats"></span><span class="spacer"></span>
-        <button class="primary" id="toImages">Next: check images →</button></div>`;
+        <label class="small" title="Skips step 2. Tags are still anonymised and checked, but nobody looks at the images, so burned-in text (names, dates) stays in the pixels.">
+          <input type="checkbox" id="skipPix" ${c.skipPixels ? 'checked' : ''}> Skip image check (faster)</label>
+        <button class="primary" id="toImages">${c.skipPixels ? 'Next: review &amp; save →' : 'Next: check images →'}</button></div>`;
     bindBanner();
     $('#filter').value = c.filter;
     fillTagBody();
@@ -588,6 +591,13 @@
     $$('[data-opt]').forEach((cb) => {
       cb.onchange = () => { c.options = Object.assign({}, c.options, { [cb.dataset.opt]: cb.checked }); markDirty(); fillTagBody(); };
     });
+    $('#skipPix').onchange = (e) => {
+      c.skipPixels = e.target.checked;
+      store.load().skipPixels = c.skipPixels;
+      store.save();
+      $('#toImages').textContent = c.skipPixels ? 'Next: review & save →' : 'Next: check images →';
+      setSteps(2);
+    };
     $('#filter').onchange = (e) => { c.filter = e.target.value; fillTagBody(); };
     $('#showPriv').onchange = (e) => { c.showPrivate = e.target.checked; fillTagBody(); };
     $('#search').oninput = (e) => { c.search = e.target.value; fillTagBody(); };
@@ -612,7 +622,7 @@
     };
     $('#toImages').onclick = () => {
       const leaks = sum.rows.filter((r) => r.leak && ruleOf(r).a === 'keep');
-      const go = () => renderImages();
+      const go = () => (c.skipPixels ? renderReview() : renderImages());
       if (leaks.length) {
         confirmBox('Patient data would be kept', '<p>These tags contain the patient name or ID but are set to <b>Keep</b>:</p><ul>' +
           leaks.slice(0, 12).map((r) => '<li>' + esc(r.name) + ' ' + esc(D.fmtTag(r.tag)) + '</li>').join('') + '</ul><p>Continue anyway?</p>',
@@ -988,7 +998,8 @@
           <div class="row" style="margin-bottom:8px"><h2 style="margin:0">Before / after</h2><span class="spacer"></span>
             <select id="cmpSeries">${all.map((se) => '<option value="' + esc(se.uid) + '"' + (se === c.cmpSeries ? ' selected' : '') + '>S' + se.number + ' · ' + esc(se.modality) + ' · ' + esc(se.desc || '') + ' (' + se.files.length + ' files)</option>').join('')}</select>
             <input type="range" id="cmpSlider" min="0" style="width:160px"><span class="small muted" id="cmpLabel"></span></div>
-          <div class="compare">
+          ${c.skipPixels ? '<div class="note warn small">Image check skipped: images are not shown or checked. Only the tags are compared below.</div>' : ''}
+          <div class="compare" ${c.skipPixels ? 'hidden' : ''}>
             <div class="pane"><div class="cap">Original</div><canvas id="cvBefore"></canvas></div>
             <div class="pane"><div class="cap">Anonymised (read back from the generated file)</div><canvas id="cvAfter"></canvas></div>
           </div>
@@ -1019,7 +1030,7 @@
               : '<div class="note warn small">No key file selected: this pseudonym cannot be traced back to the patient later. <button class="small" id="pickKey">Choose key file…</button></div>'}</div>
           </div>
           <div class="card">
-            <div class="row"><button id="backImages">← Images</button><span class="spacer"></span>
+            <div class="row"><button id="backImages">${c.skipPixels ? '← Tags' : '← Images'}</button><span class="spacer"></span>
               <button class="primary" id="saveBtn" disabled>Confirm &amp; save</button></div>
             <p class="small muted" id="saveHint" style="margin-top:8px">Waiting for the check of all files…</p>
           </div>
@@ -1031,7 +1042,7 @@
     $('#cmpSeries').onchange = (e) => { c.cmpSeries = st.series.get(e.target.value); c.cmpIndex = 0; showCompare(); };
     $('#cmpSlider').oninput = (e) => { c.cmpIndex = +e.target.value; showCompare(); };
     $('#onlyChanged').onchange = showCompare;
-    $('#backImages').onclick = () => { verifyToken++; renderImages(); };
+    $('#backImages').onclick = () => { verifyToken++; if (c.skipPixels) renderTags(); else renderImages(); };
     $$('input[name=mode]').forEach((r) => {
       r.onchange = () => { c.outMode = r.value; $('#owBox').hidden = r.value !== 'overwrite'; updateSave(); };
     });
@@ -1096,7 +1107,7 @@
       if (token !== showToken) return;
       const orig = await getParsed(it.file);
       // Images
-      if (it.file.hasPixels) {
+      if (it.file.hasPixels && !c.skipPixels) {
         try {
           const b = await getFrame(it.file, it.frame);
           const win = c.win.get(se.uid) || P.defaultWindow(b.frame, b.inf);
@@ -1172,8 +1183,14 @@
       html += '<div class="note bad"><b>' + v.errors.length + ' file(s) could not be processed</b> and will not be saved:<ul style="margin:4px 0 0 18px;padding:0">' +
         v.errors.slice(0, 8).map((e) => '<li>' + esc(e.file.path) + ': ' + esc(e.msg) + '</li>').join('') + '</ul></div>';
     }
+    if (c.skipPixels) {
+      const risky = c.study.seriesList.filter((se) => se.images.length && se.risk.length);
+      html += '<div class="note warn"><b>Image check was skipped.</b> Burned-in text in the images is not removed.' +
+        (risky.length ? ' These series may contain burned-in text:<ul style="margin:4px 0 0 18px;padding:0">' +
+          risky.map((se) => '<li>S' + se.number + ' ' + esc(se.modality) + ' ' + esc(se.desc || '') + ': ' + esc(se.risk.join(', ')) + '</li>').join('') + '</ul>' : '') + '</div>';
+    }
     const undecodable = c.study.seriesList.filter((se) => se.images.length && !P.canDecode(se.ts));
-    if (undecodable.length) html += '<div class="note warn">' + undecodable.length + ' series could not be displayed; their pixels were not checked.</div>';
+    if (undecodable.length && !c.skipPixels) html += '<div class="note warn">' + undecodable.length + ' series could not be displayed; their pixels were not checked.</div>';
     $('#vResult').innerHTML = html;
     $('#vResult').className = '';
     updateSave();

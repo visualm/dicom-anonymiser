@@ -19,7 +19,7 @@ Open `app/index.html` in Microsoft Edge or Google Chrome. User instructions are 
   - Compressed images: JPEG baseline, JPEG lossless, JPEG-LS, JPEG 2000 and RLE.
 - **Step 1: tags.**
   - All tags in the study are listed with their values.
-  - Defaults follow the PS3.15 Basic Profile.
+  - Defaults follow the PS3.15 Basic Profile, except that examination type and body part descriptions (Study/Series Description, Protocol Name, procedure descriptions and codes) are kept.
   - Each tag can be set to Keep, Empty, Remove, Random, Fixed value, Pseudonym or Counter (1, 2, 3… per image in study order).
   - Optionally, all images of a study can be merged into one stack: one shared Series UID, Series Number 1, Instance Numbers 1…N.
   - Rows that contain the patient name or ID are highlighted.
@@ -30,6 +30,7 @@ Open `app/index.html` in Microsoft Edge or Google Chrome. User instructions are 
   - Series likely to contain burned-in text are flagged (Burned In Annotation, US, SC, …).
   - Redaction boxes can apply to one image, the whole series, or all same-size images in the study.
   - Each box is filled black or white.
+  - Optional fast mode: "Skip image check" goes from Tags straight to Review. Tags are still checked; burned-in pixel data is not.
 - **Step 3: review.**
   - Shows a before/after image and a before/after tag diff. The "after" side is decoded from the generated file.
   - Every file is anonymised in memory, read back and searched for the original identifiers.
