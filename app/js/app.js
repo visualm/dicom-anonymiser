@@ -165,7 +165,7 @@
         }).join('')}
         </tbody></table>
       </div>
-      <p class="small muted" style="margin-top:16px">DICOM Anonymiser 1.1.0 runs entirely in this browser. Default tag rules follow the
+      <p class="small muted" style="margin-top:16px">DICOM Anonymiser 1.2.0 runs entirely in this browser. Default tag rules follow the
       DICOM PS3.15 Basic Application Level Confidentiality Profile. Always check the result before sharing data.</p>
       </div>`;
 
